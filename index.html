@@ -1,0 +1,1117 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#020617">
+<title>电磁征途 · 3D物理闯关实验室</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{background:#020617;color:#e2e8f0;font-family:'Segoe UI','Microsoft YaHei',-apple-system,sans-serif;overflow:hidden;height:100vh;width:100vw;user-select:none;position:fixed;inset:0;overscroll-behavior:none}
+canvas#scene{display:block;position:fixed;top:0;left:0;z-index:0;touch-action:none}
+.top-bar{position:fixed;top:0;left:0;right:0;height:64px;z-index:20;background:linear-gradient(180deg,rgba(2,6,23,.95),rgba(2,6,23,0));display:flex;align-items:center;justify-content:space-between;padding:0 28px;pointer-events:none}
+.logo{display:flex;align-items:center;gap:10px;pointer-events:auto}
+.logo-icon{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,#0284c7,#22d3ee);display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:0 0 20px rgba(34,211,238,.45);flex-shrink:0}
+.logo h1{font-size:16px;font-weight:700;letter-spacing:1.2px;background:linear-gradient(90deg,#38bdf8,#a78bfa);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.logo p{font-size:10px;color:#475569;letter-spacing:2px;white-space:nowrap}
+.stats-bar{display:flex;gap:22px;pointer-events:auto;flex-shrink:0}
+.stat-pill{background:rgba(15,23,42,.75);backdrop-filter:blur(12px);border:1px solid rgba(56,189,248,.2);border-radius:12px;padding:7px 16px;display:flex;align-items:center;gap:9px;font-size:13px}
+.stat-pill .ico{font-size:15px}
+.stat-pill .label{color:#64748b;font-size:10.5px;letter-spacing:1px}
+.stat-pill .value{color:#38bdf8;font-weight:700;font-variant-numeric:tabular-nums;font-size:15px}
+.stat-pill.gold .value{color:#facc15}
+.stat-pill.green .value{color:#4ade80}
+.level-map{position:fixed;right:28px;top:92px;z-index:15;display:flex;flex-direction:column;gap:10px}
+.level-node{width:100px;background:rgba(15,23,42,.7);backdrop-filter:blur(12px);border:1px solid rgba(56,189,248,.18);border-radius:14px;padding:11px 12px;cursor:pointer;transition:all .25s cubic-bezier(.4,0,.2,1);position:relative;overflow:hidden}
+.level-node:hover{transform:translateX(-4px);border-color:rgba(56,189,248,.5)}
+.level-node.active{border-color:#38bdf8;background:linear-gradient(135deg,rgba(2,132,199,.35),rgba(15,23,42,.9));box-shadow:0 0 25px rgba(56,189,248,.4)}
+.level-node.locked{opacity:.35;cursor:not-allowed;filter:grayscale(.7)}
+.level-node.locked:hover{transform:none}
+.level-node .num{font-size:10px;color:#475569;letter-spacing:2px;font-weight:700}
+.level-node .name{font-size:12.5px;color:#cbd5e1;font-weight:600;margin-top:2px;white-space:nowrap}
+.level-node.active .name{color:#7dd3fc}
+.level-node .stars{margin-top:5px;display:flex;gap:2px;font-size:11px}
+.level-node .stars .on{color:#facc15;filter:drop-shadow(0 0 4px #facc15)}
+.level-node .stars .off{color:#334155}
+.level-node .lock-icon{position:absolute;top:10px;right:10px;font-size:13px;color:#475569}
+.task-panel{position:fixed;left:28px;top:92px;z-index:15;width:300px;background:rgba(15,23,42,.78);backdrop-filter:blur(16px);border:1px solid rgba(56,189,248,.2);border-left:3px solid #38bdf8;border-radius:16px;padding:18px 20px;box-shadow:0 20px 50px -15px rgba(0,0,0,.8)}
+.task-panel .task-tag{font-size:10px;color:#38bdf8;letter-spacing:2px;font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.task-panel .task-tag .dot{width:6px;height:6px;border-radius:50%;background:#22d3ee;box-shadow:0 0 10px #22d3ee;animation:blink 1.4s ease-in-out infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.task-title{font-size:15px;font-weight:700;color:#f8fafc;line-height:1.5;margin-bottom:12px}
+.task-title em{color:#facc15;font-style:normal;background:rgba(250,204,21,.12);padding:1px 6px;border-radius:5px;font-variant-numeric:tabular-nums}
+.task-progress{height:6px;background:rgba(51,65,85,.6);border-radius:999px;overflow:hidden;margin-bottom:6px}
+.task-progress .fill{height:100%;background:linear-gradient(90deg,#0ea5e9,#22d3ee);border-radius:999px;transition:width .4s cubic-bezier(.4,0,.2,1);box-shadow:0 0 10px rgba(34,211,238,.6)}
+.task-progress-label{display:flex;justify-content:space-between;font-size:10.5px;color:#64748b;letter-spacing:.5px}
+.panel{position:fixed;left:28px;bottom:28px;z-index:15;width:320px;background:rgba(15,23,42,.78);backdrop-filter:blur(16px);border:1px solid rgba(56,189,248,.2);border-radius:18px;padding:18px 20px;box-shadow:0 20px 50px -15px rgba(0,0,0,.8)}
+.panel h3{font-size:11px;letter-spacing:1.8px;color:#64748b;text-transform:uppercase;margin-bottom:14px;font-weight:600}
+.ctrl-row{margin-bottom:15px}
+.ctrl-row:last-of-type{margin-bottom:0}
+.ctrl-row.hidden{display:none}
+.ctrl-label{display:flex;justify-content:space-between;font-size:12px;color:#94a3b8;margin-bottom:8px;letter-spacing:.3px}
+.ctrl-label b{color:#38bdf8;font-weight:600;font-variant-numeric:tabular-nums}
+input[type=range]{-webkit-appearance:none;width:100%;height:4px;border-radius:999px;background:linear-gradient(90deg,var(--c1,#0ea5e9) var(--fill,50%),#1e293b var(--fill,50%));outline:none;cursor:pointer;touch-action:pan-y}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:15px;height:15px;border-radius:50%;background:#f0f9ff;border:3px solid var(--c1,#0ea5e9);box-shadow:0 0 12px var(--c1,#0ea5e9);transition:transform .15s}
+input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.2)}
+.btn-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:15px}
+.action-btn{background:rgba(51,65,85,.5);border:1px solid rgba(71,85,105,.6);color:#cbd5e1;padding:10px 8px;border-radius:10px;font-size:12px;font-weight:600;cursor:pointer;transition:all .2s;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:6px;-webkit-appearance:none}
+.action-btn:hover{background:rgba(71,85,105,.8);transform:translateY(-1px)}
+.action-btn:active{transform:scale(.96)}
+.action-btn.active{background:linear-gradient(135deg,rgba(185,28,28,.85),rgba(220,38,38,.85));border-color:#ef4444;color:#fff;box-shadow:0 0 18px rgba(239,68,68,.4)}
+.action-btn.submit{grid-column:1/-1;background:linear-gradient(135deg,#16a34a,#22c55e);border-color:#4ade80;color:#fff;font-size:13.5px;padding:13px;box-shadow:0 0 20px rgba(34,197,94,.35)}
+.action-btn.submit:hover{box-shadow:0 0 30px rgba(34,197,94,.6)}
+.action-btn.submit:disabled{background:rgba(51,65,85,.5);border-color:#334155;color:#64748b;box-shadow:none;cursor:not-allowed;transform:none}
+.stats{position:fixed;right:28px;bottom:28px;z-index:15;width:260px;background:rgba(15,23,42,.78);backdrop-filter:blur(16px);border:1px solid rgba(56,189,248,.2);border-radius:18px;padding:18px 20px;box-shadow:0 20px 50px -15px rgba(0,0,0,.8)}
+.stats h3{font-size:11px;letter-spacing:1.8px;color:#64748b;text-transform:uppercase;margin-bottom:14px;font-weight:600}
+.stat-item{display:flex;justify-content:space-between;align-items:baseline;padding:8px 0;border-bottom:1px solid rgba(51,65,85,.4);font-size:12.5px}
+.stat-item:last-child{border-bottom:none}
+.stat-item span{color:#64748b}
+.stat-item b{font-size:14px;font-variant-numeric:tabular-nums;font-weight:600}
+.stat-item b.cyan{color:#22d3ee}
+.stat-item b.orange{color:#fb923c}
+.stat-item b.gold{color:#facc15}
+.stat-item b.purple{color:#a78bfa}
+.tip{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);z-index:15;max-width:540px;background:rgba(2,6,23,.78);backdrop-filter:blur(12px);border:1px solid rgba(56,189,248,.22);border-left:3px solid #38bdf8;border-radius:12px;padding:11px 18px;font-size:12.5px;color:#bae6fd;line-height:1.7;text-align:center;transition:all .3s}
+.tip em{color:#facc15;font-style:normal;font-weight:600}
+.modal-overlay{position:fixed;inset:0;background:rgba(2,6,23,.85);backdrop-filter:blur(8px);z-index:100;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .4s;padding:16px}
+.modal-overlay.show{opacity:1;pointer-events:auto}
+.modal{background:linear-gradient(160deg,rgba(30,41,59,.98),rgba(15,23,42,.98));border:1px solid rgba(56,189,248,.3);border-radius:24px;padding:36px 48px;text-align:center;max-width:440px;width:100%;box-shadow:0 30px 80px -20px rgba(0,0,0,.9),0 0 60px rgba(56,189,248,.15);transform:scale(.85);transition:transform .4s cubic-bezier(.34,1.56,.64,1)}
+.modal-overlay.show .modal{transform:scale(1)}
+.modal .result-icon{font-size:56px;margin-bottom:8px;filter:drop-shadow(0 0 20px rgba(250,204,21,.5))}
+.modal h2{font-size:24px;font-weight:800;margin-bottom:6px;background:linear-gradient(90deg,#38bdf8,#a78bfa);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.modal .subtitle{font-size:13px;color:#64748b;margin-bottom:22px}
+.modal .stars-big{font-size:34px;letter-spacing:6px;margin-bottom:18px;display:flex;justify-content:center;gap:4px}
+.modal .stars-big .on{color:#facc15;filter:drop-shadow(0 0 12px #facc15);animation:starPop .5s cubic-bezier(.34,1.56,.64,1) both}
+.modal .stars-big .off{color:#334155}
+@keyframes starPop{0%{transform:scale(0) rotate(-180deg)}100%{transform:scale(1) rotate(0)}}
+.modal .score-row{display:flex;justify-content:center;gap:28px;margin-bottom:22px;padding:16px 0;border-top:1px solid rgba(51,65,85,.5);border-bottom:1px solid rgba(51,65,85,.5)}
+.modal .score-row .item{text-align:center}
+.modal .score-row .item .v{font-size:22px;font-weight:800;font-variant-numeric:tabular-nums}
+.modal .score-row .item .l{font-size:10.5px;color:#64748b;letter-spacing:1.5px;margin-top:3px}
+.modal .score-row .item .v.gold{color:#facc15}
+.modal .score-row .item .v.cyan{color:#22d3ee}
+.modal .score-row .item .v.purple{color:#a78bfa}
+.modal .btn-main{background:linear-gradient(135deg,#0284c7,#0ea5e9);border:none;color:#fff;padding:14px 40px;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;letter-spacing:1px;transition:all .25s;box-shadow:0 0 25px rgba(14,165,233,.4);width:100%;-webkit-appearance:none}
+.modal .btn-main:hover{transform:translateY(-2px);box-shadow:0 0 35px rgba(14,165,233,.7)}
+.achievement{position:fixed;top:84px;left:50%;transform:translateX(-50%) translateY(-30px);z-index:50;background:linear-gradient(135deg,rgba(250,204,21,.95),rgba(245,158,11,.95));color:#1a1a1a;padding:12px 24px;border-radius:14px;font-weight:700;font-size:13.5px;box-shadow:0 10px 40px rgba(250,204,21,.5);opacity:0;transition:all .5s cubic-bezier(.34,1.56,.64,1);display:flex;align-items:center;gap:10px;pointer-events:none;max-width:92vw}
+.achievement.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.achievement .ach-ico{font-size:20px}
+.controls-hint{position:fixed;top:50%;left:28px;transform:translateY(-50%);z-index:9;font-size:11px;color:#334155;line-height:2;letter-spacing:.5px;pointer-events:none}
+.controls-hint .key{display:inline-block;background:rgba(30,41,59,.7);border:1px solid #334155;padding:2px 7px;border-radius:5px;font-size:10px;color:#64748b;margin-right:6px}
+@media (max-width:768px){
+.top-bar{height:46px;padding:0 10px}
+.logo{gap:6px}
+.logo-icon{width:26px;height:26px;font-size:14px;border-radius:7px}
+.logo h1{font-size:11px;letter-spacing:.3px}
+.logo p{display:none}
+.stats-bar{gap:5px}
+.stat-pill{padding:3px 7px;border-radius:8px;gap:4px}
+.stat-pill .ico{font-size:11px}
+.stat-pill .label{display:none}
+.stat-pill .value{font-size:12px}
+.level-map{right:auto;left:8px;right:8px;top:52px;flex-direction:row;overflow-x:auto;overflow-y:hidden;width:auto;gap:5px;padding:2px 0 4px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.level-map::-webkit-scrollbar{display:none}
+.level-node{width:auto;min-width:auto;padding:5px 9px;border-radius:9px;flex-shrink:0;white-space:nowrap}
+.level-node:hover{transform:none}
+.level-node .num{display:none}
+.level-node .name{font-size:10.5px;margin-top:0}
+.level-node .stars{margin-top:2px;font-size:8px}
+.level-node .lock-icon{top:3px;right:3px;font-size:9px}
+.task-panel{left:8px;right:8px;top:96px;width:auto;padding:8px 10px;border-radius:10px;border-left-width:2px}
+.task-panel .task-tag{font-size:9px;margin-bottom:4px;letter-spacing:1.4px}
+.task-title{font-size:11.5px;line-height:1.35;margin-bottom:6px}
+.task-progress{height:3px;margin-bottom:3px}
+.task-progress-label{font-size:9px}
+.stats{left:8px;right:8px;top:174px;bottom:auto;width:auto;padding:6px 10px;border-radius:10px;display:grid;grid-template-columns:1fr 1fr;gap:3px 12px}
+.stats h3{display:none}
+.stat-item{padding:2px 0;border:none;font-size:10px}
+.stat-item span{font-size:9.5px}
+.stat-item b{font-size:11px}
+.panel{left:8px;right:8px;bottom:8px;width:auto;padding:10px 12px;border-radius:12px}
+.panel h3{font-size:9px;margin-bottom:6px;letter-spacing:1.2px}
+.ctrl-row{margin-bottom:5px}
+.ctrl-label{font-size:10px;margin-bottom:3px}
+input[type=range]{height:3px}
+input[type=range]::-webkit-slider-thumb{width:18px;height:18px;border-width:2.5px;box-shadow:0 0 8px var(--c1)}
+.btn-row{gap:5px;margin-top:7px}
+.action-btn{padding:9px 4px;font-size:11px;border-radius:8px;min-height:38px}
+.action-btn.submit{font-size:12.5px;padding:11px;min-height:44px}
+.tip{bottom:auto;bottom:calc(8px + 165px);left:50%;transform:translateX(-50%);width:calc(100% - 16px);max-width:520px;font-size:10.5px;padding:6px 10px;border-radius:9px;border-left-width:2px;line-height:1.45}
+.controls-hint{display:none}
+.modal{padding:24px 22px;border-radius:18px}
+.modal .result-icon{font-size:42px}
+.modal h2{font-size:19px}
+.modal .stars-big{font-size:26px;letter-spacing:4px;margin-bottom:14px}
+.modal .score-row{gap:16px;margin-bottom:16px;padding:12px 0}
+.modal .score-row .item .v{font-size:17px}
+.modal .score-row .item .l{font-size:9px}
+.modal .btn-main{padding:12px 30px;font-size:13px}
+.achievement{top:auto;bottom:210px;font-size:11.5px;padding:9px 16px}
+}
+@media (max-width:480px){
+.logo h1{font-size:10.5px}
+.task-title{font-size:11px}
+.stats{top:170px}
+.action-btn{font-size:10.5px}
+}
+</style>
+</head>
+<body>
+<canvas id="scene"></canvas>
+
+<div class="top-bar">
+<div class="logo"><div class="logo-icon">⚡</div><div><h1>电磁征途 · 3D物理闯关实验室</h1><p>PHYSICS QUEST · ELECTROMAGNETISM</p></div></div>
+<div class="stats-bar">
+<div class="stat-pill gold"><span class="ico">⭐</span><div><div class="label">总分</div><div class="value" id="hudScore">0</div></div></div>
+<div class="stat-pill green"><span class="ico">🏆</span><div><div class="label">成就</div><div class="value" id="hudAch">0/5</div></div></div>
+<div class="stat-pill"><span class="ico">⏱️</span><div><div class="label">计时</div><div class="value" id="hudTime">00:00</div></div></div>
+</div>
+</div>
+
+<div class="level-map" id="levelMap"></div>
+
+<div class="task-panel">
+<div class="task-tag"><span class="dot"></span>当前任务</div>
+<div class="task-title" id="taskTitle">加载中...</div>
+<div class="task-progress"><div class="fill" id="taskFill" style="width:0%"></div></div>
+<div class="task-progress-label"><span id="taskProgressText">进度 0%</span><span id="taskHint">请调节参数</span></div>
+</div>
+
+<div class="controls-hint"><div><span class="key">拖拽</span>旋转</div><div><span class="key">滚轮</span>缩放</div><div><span class="key">右键</span>平移</div></div>
+
+<div class="panel">
+<h3>控制参数</h3>
+<div class="ctrl-row" id="rowCurrent"><div class="ctrl-label"><span>电流强度 I</span><b id="valI">1.0 A</b></div><input type="range" id="rngI" min="0.2" max="3" step="0.1" value="1" style="--c1:#ef4444;"></div>
+<div class="ctrl-row" id="rowField"><div class="ctrl-label"><span>磁场强度 B</span><b id="valB">1.0 T</b></div><input type="range" id="rngB" min="0.2" max="3" step="0.1" value="1" style="--c1:#38bdf8;"></div>
+<div class="ctrl-row" id="rowSpeed"><div class="ctrl-label"><span>磁铁运动速度 v</span><b id="valV">1.0 m/s</b></div><input type="range" id="rngV" min="0.2" max="3" step="0.1" value="1" style="--c1:#a78bfa;"></div>
+<div class="btn-row">
+<button class="action-btn active" id="btnDir">🔄 切换方向</button>
+<button class="action-btn" id="btnRotate">🎥 自动旋转</button>
+<button class="action-btn submit" id="btnSubmit">✅ 提交答案</button>
+</div>
+</div>
+
+<div class="stats">
+<h3>实时数据</h3>
+<div class="stat-item"><span>电流方向</span><b class="cyan" id="outDir">↑ 向上</b></div>
+<div class="stat-item"><span>磁感线方向</span><b class="orange" id="outField">逆时针</b></div>
+<div class="stat-item"><span>安培力 F</span><b class="gold" id="outF">—</b></div>
+<div class="stat-item"><span>感应电动势 ε</span><b class="purple" id="outEMF">—</b></div>
+</div>
+
+<div class="tip" id="tip">欢迎来到《电磁征途》！完成每个关卡的挑战任务即可获得积分和星级评价。</div>
+
+<div class="modal-overlay" id="modalOverlay">
+<div class="modal">
+<div class="result-icon" id="resultIcon">🎉</div>
+<h2 id="resultTitle">任务完成！</h2>
+<div class="subtitle" id="resultSubtitle">做得漂亮，继续保持！</div>
+<div class="stars-big" id="resultStars"></div>
+<div class="score-row">
+<div class="item"><div class="v gold" id="resultScore">+100</div><div class="l">本次得分</div></div>
+<div class="item"><div class="v cyan" id="resultTotal">0</div><div class="l">累计总分</div></div>
+<div class="item"><div class="v purple" id="resultTime">0s</div><div class="l">用时</div></div>
+</div>
+<button class="btn-main" id="btnNext">下一关 →</button>
+</div>
+</div>
+
+<div class="achievement" id="achievement"><span class="ach-ico">🏅</span><span id="achText">成就解锁！</span></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+const MOBILE = /Android|iPhone|iPad|iPod|Mobile|HarmonyOS/i.test(navigator.userAgent) || (window.matchMedia && window.matchMedia('(max-width: 768px)').matches);
+const DPR_CAP = MOBILE ? 1.5 : 2.0;
+
+const canvas = document.getElementById('scene');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: !MOBILE });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, DPR_CAP));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setClearColor(0x020617, 1);
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(0x020617, 0.018);
+const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 300);
+camera.position.set(8, 6, 11);
+
+const controls = new THREE.OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true; controls.dampingFactor = 0.08;
+controls.minDistance = 4; controls.maxDistance = 45;
+controls.autoRotateSpeed = 1.2;
+controls.touches = { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN };
+
+scene.add(new THREE.AmbientLight(0x667799, 1.1));
+const keyLight = new THREE.DirectionalLight(0xffffff, 1.4);
+keyLight.position.set(8, 14, 8); scene.add(keyLight);
+const rimBlue = new THREE.PointLight(0x38bdf8, 2.2, 50);
+rimBlue.position.set(-9, 4, -7); scene.add(rimBlue);
+
+const grid = new THREE.GridHelper(60, 40, 0x1e3a5f, 0x0a1526);
+grid.position.y = -5.5; grid.material.transparent = true; grid.material.opacity = 0.35;
+scene.add(grid);
+
+(function stars() {
+  const COUNT = MOBILE ? 200 : 400;
+  const pos = new Float32Array(COUNT * 3);
+  for (let i = 0; i < COUNT; i++) {
+    const r = 70 + Math.random() * 50, t = Math.random() * Math.PI * 2, p = Math.acos(2 * Math.random() - 1);
+    pos[i*3] = r * Math.sin(p) * Math.cos(t);
+    pos[i*3+1] = r * Math.cos(p);
+    pos[i*3+2] = r * Math.sin(p) * Math.sin(t);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  scene.add(new THREE.Points(g, new THREE.PointsMaterial({ color: 0x64748b, size: 0.5, transparent: true, opacity: 0.55 })));
+})();
+
+const root = new THREE.Group();
+scene.add(root);
+
+const dummy = new THREE.Object3D();
+function makeInstanced(geo, mat, count) {
+  const im = new THREE.InstancedMesh(geo, mat, count);
+  im.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  im.frustumCulled = false;
+  return im;
+}
+class HelixCurve extends THREE.Curve {
+  constructor(radius, height, turns) { super(); this.radius = radius; this.height = height; this.turns = turns; }
+  getPoint(t, target = new THREE.Vector3()) {
+    const a = 2 * Math.PI * this.turns * t;
+    return target.set(this.radius * Math.cos(a), this.height * (t - 0.5), this.radius * Math.sin(a));
+  }
+}
+
+const state = { mode: 'field', current: 1, field: 1, speed: 1, direction: 1, autoRotate: false, time: 0 };
+
+/* ============ 场景 1：直导线 ============ */
+function buildStraightWire() {
+  const g = new THREE.Group();
+  const WIRE_H = 11;
+  const wire = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.15, 0.15, WIRE_H, 28),
+    new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 1, roughness: 0.2, emissive: 0x475569, emissiveIntensity: 0.5 })
+  );
+  g.add(wire);
+  const halo = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.38, 0.38, WIRE_H, 28, 1, true),
+    new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.12, side: THREE.DoubleSide })
+  );
+  g.add(halo);
+
+  const RADII = [1.2, 2.0, 2.9, 3.9];
+  const rings = [];
+  const arrowHelpers = [];
+  RADII.forEach((r, i) => {
+    const ring = new THREE.Mesh(
+      new THREE.TorusGeometry(r, 0.022, 8, 96),
+      new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.6 - i * 0.09 })
+    );
+    ring.rotation.x = Math.PI / 2;
+    g.add(ring);
+    rings.push({ mesh: ring, baseOpacity: 0.6 - i * 0.09 });
+    for (let k = 0; k < 4; k++) {
+      const angle0 = (Math.PI * 2 / 4) * k;
+      const arrow = new THREE.ArrowHelper(new THREE.Vector3(0, 0, 0), new THREE.Vector3(r * Math.cos(angle0), 0, r * Math.sin(angle0)), 0.45, 0x7dd3fc, 0.22, 0.15);
+      g.add(arrow);
+      arrowHelpers.push({ arrow, r, angle0 });
+    }
+  });
+
+  const particleData = [];
+  RADII.forEach((r, i) => {
+    const n = 12 + i * 6;
+    for (let k = 0; k < n; k++) particleData.push({ r, angle: (Math.PI * 2 / n) * k, speed: 0.9 - i * 0.1 });
+  });
+  const inst = makeInstanced(new THREE.SphereGeometry(0.09, 8, 8), new THREE.MeshBasicMaterial({ color: 0x7dd3fc }), particleData.length);
+  g.add(inst);
+
+  const flowArrowCount = MOBILE ? 4 : 6;
+  const flowArrows = [];
+  for (let i = 0; i < flowArrowCount; i++) {
+    const arrow = new THREE.ArrowHelper(new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 0), 1.1, 0xef4444, 0.55, 0.32);
+    g.add(arrow);
+    flowArrows.push(arrow);
+  }
+
+  const flowCount = MOBILE ? 8 : 12;
+  const flowInst = makeInstanced(new THREE.SphereGeometry(0.2, 10, 10), new THREE.MeshBasicMaterial({ color: 0xf87171 }), flowCount);
+  g.add(flowInst);
+
+  const currentArrow = new THREE.ArrowHelper(new THREE.Vector3(0, 1, 0), new THREE.Vector3(0.8, -3.5, 0), 3.5, 0xef4444, 0.7, 0.4);
+  g.add(currentArrow);
+
+  const _v = new THREE.Vector3();
+  const _c = new THREE.Color();
+  return {
+    group: g, camPos: new THREE.Vector3(8, 6, 11),
+    update(dt, t) {
+      const cur = state.current, dir = state.direction;
+      let idx = 0;
+      particleData.forEach(pd => {
+        pd.angle -= pd.speed * dt * dir * (0.7 + cur * 0.9);
+        dummy.position.set(pd.r * Math.cos(pd.angle), 0, pd.r * Math.sin(pd.angle));
+        dummy.scale.setScalar(0.7 + cur * 0.5);
+        dummy.updateMatrix();
+        inst.setMatrixAt(idx++, dummy.matrix);
+      });
+      inst.instanceMatrix.needsUpdate = true;
+      rings.forEach((rm, i) => {
+        const pulse = 0.5 + Math.abs(Math.sin(t * 1.6 + i * 0.5)) * 0.5;
+        rm.mesh.material.opacity = rm.baseOpacity * (0.5 + pulse * 0.6);
+      });
+      arrowHelpers.forEach(({ arrow, r, angle0 }) => {
+        const a = angle0 - dir * t * 0.5;
+        arrow.position.set(r * Math.cos(a), 0, r * Math.sin(a));
+        const tx = Math.sin(a) * dir;
+        const tz = -Math.cos(a) * dir;
+        arrow.setDirection(_v.set(tx, 0, tz).normalize());
+        arrow.setColor(_c.setHex(dir > 0 ? 0x7dd3fc : 0xfb923c));
+      });
+      const arrowSpeed = 3.0 + cur * 2.0;
+      const arrowColor = dir > 0 ? 0xef4444 : 0xf97316;
+      flowArrows.forEach((arrow, i) => {
+        let p = ((t * arrowSpeed * dir + i / flowArrowCount) % 1 + 1) % 1;
+        const y = -5.0 + p * 10.0;
+        arrow.position.set(0.5, y, 0.5);
+        arrow.setDirection(_v.set(0, dir, 0));
+        arrow.setColor(_c.setHex(arrowColor));
+        const scale = 0.85 + cur * 0.3;
+        arrow.setLength(1.1 * scale, 0.55 * scale, 0.32 * scale);
+      });
+      const flowSpeed = 3.5 + cur * 2.5;
+      for (let i = 0; i < flowCount; i++) {
+        let p = ((t * flowSpeed * dir + i / flowCount) % 1 + 1) % 1;
+        dummy.position.set(0, -5.0 + p * 10.0, 0);
+        dummy.scale.setScalar(0.9 + cur * 0.5);
+        dummy.updateMatrix();
+        flowInst.setMatrixAt(i, dummy.matrix);
+      }
+      flowInst.instanceMatrix.needsUpdate = true;
+      currentArrow.setDirection(_v.set(0, dir, 0));
+      currentArrow.position.set(0.8, dir > 0 ? -3.5 : 3.5, 0);
+      currentArrow.setColor(_c.setHex(dir > 0 ? 0xef4444 : 0xf97316));
+    }
+  };
+}
+
+/* ============ 场景 2：螺线管 ============ */
+function buildSolenoid() {
+  const g = new THREE.Group();
+  const R = 1.6, H = 6.5, TURNS = 9;
+  const helixCurve = new HelixCurve(R, H, TURNS);
+  const coil = new THREE.Mesh(
+    new THREE.TubeGeometry(helixCurve, MOBILE ? 400 : 500, 0.08, 10, false),
+    new THREE.MeshStandardMaterial({ color: 0xf59e0b, metalness: 0.95, roughness: 0.25, emissive: 0x92400e, emissiveIntensity: 0.35 })
+  );
+  g.add(coil);
+
+  const coilParticles = MOBILE ? 90 : 140;
+  const coilInst = makeInstanced(new THREE.SphereGeometry(0.11, 8, 8), new THREE.MeshBasicMaterial({ color: 0xfbbf24 }), coilParticles);
+  g.add(coilInst);
+
+  const coilArrowCount = MOBILE ? 10 : 15;
+  const coilArrows = [];
+  for (let i = 0; i < coilArrowCount; i++) {
+    const arrow = new THREE.ArrowHelper(new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0, 0), 0.5, 0xfbbf24, 0.3, 0.2);
+    g.add(arrow);
+    coilArrows.push(arrow);
+  }
+
+  const innerLines = [];
+  const innerCount = 6;
+  for (let i = 0; i < innerCount; i++) {
+    const a = (Math.PI * 2 / innerCount) * i;
+    const rr = R * 0.55;
+    const x = rr * Math.cos(a), z = rr * Math.sin(a);
+    const lineGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(x, -H * 0.5, z), new THREE.Vector3(x, H * 0.5, z)]);
+    g.add(new THREE.Line(lineGeo, new THREE.LineBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.5 })));
+    innerLines.push({ x, z });
+  }
+  const innerParticles = MOBILE ? 40 : 60;
+  const innerInst = makeInstanced(new THREE.SphereGeometry(0.09, 8, 8), new THREE.MeshBasicMaterial({ color: 0x7dd3fc }), innerParticles);
+  g.add(innerInst);
+
+  const outerCurves = [];
+  for (let i = 0; i < 3; i++) {
+    const scale = 1.5 + i * 0.65;
+    const ptsR = [];
+    for (let j = 0; j <= 40; j++) {
+      const ang = Math.PI * (j / 40);
+      ptsR.push(new THREE.Vector3(R * scale * Math.sin(ang), H * 0.55 * Math.cos(ang), 0));
+    }
+    const curveR = new THREE.CatmullRomCurve3(ptsR);
+    g.add(new THREE.Mesh(new THREE.TubeGeometry(curveR, 60, 0.015, 6, false), new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.3 - i * 0.05 })));
+    outerCurves.push(curveR);
+    const ptsL = [];
+    for (let j = 0; j <= 40; j++) {
+      const ang = -Math.PI * (j / 40);
+      ptsL.push(new THREE.Vector3(R * scale * Math.sin(ang), H * 0.55 * Math.cos(ang), 0));
+    }
+    const curveL = new THREE.CatmullRomCurve3(ptsL);
+    g.add(new THREE.Mesh(new THREE.TubeGeometry(curveL, 60, 0.015, 6, false), new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.3 - i * 0.05 })));
+    outerCurves.push(curveL);
+  }
+  const outerParticles = MOBILE ? 30 : 45;
+  const outerInst = makeInstanced(new THREE.SphereGeometry(0.08, 8, 8), new THREE.MeshBasicMaterial({ color: 0x67e8f9 }), outerParticles);
+  g.add(outerInst);
+
+  const topArrow = new THREE.ArrowHelper(new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, H * 0.5 + 0.3, 0), 1.1, 0xef4444, 0.45, 0.28);
+  const botArrow = new THREE.ArrowHelper(new THREE.Vector3(0, -1, 0), new THREE.Vector3(0, -H * 0.5 - 0.3, 0), 1.1, 0x3b82f6, 0.45, 0.28);
+  g.add(topArrow); g.add(botArrow);
+
+  const _v = new THREE.Vector3();
+  const _v2 = new THREE.Vector3();
+  const _v3 = new THREE.Vector3();
+  const _c = new THREE.Color();
+  return {
+    group: g, camPos: new THREE.Vector3(7, 5, 10),
+    update(dt, t) {
+      const cur = state.current, dir = state.direction;
+      for (let i = 0; i < coilParticles; i++) {
+        let p = ((t * (0.08 + cur * 0.06) * dir + i / coilParticles) % 1 + 1) % 1;
+        helixCurve.getPoint(p, dummy.position);
+        dummy.scale.setScalar(0.85 + cur * 0.5);
+        dummy.updateMatrix();
+        coilInst.setMatrixAt(i, dummy.matrix);
+      }
+      coilInst.instanceMatrix.needsUpdate = true;
+
+      for (let i = 0; i < coilArrowCount; i++) {
+        const arrow = coilArrows[i];
+        let p = ((t * (0.08 + cur * 0.06) * dir + i / coilArrowCount) % 1 + 1) % 1;
+        helixCurve.getPoint(p, _v);
+        arrow.position.copy(_v);
+        const p2 = (p + 0.005) % 1;
+        helixCurve.getPoint(p2, _v2);
+        _v3.subVectors(_v2, _v).normalize();
+        if (dir < 0) _v3.multiplyScalar(-1);
+        arrow.setDirection(_v3);
+        arrow.setColor(_c.setHex(dir > 0 ? 0xfbbf24 : 0xf97316));
+      }
+
+      for (let i = 0; i < innerParticles; i++) {
+        const base = innerLines[i % innerCount];
+        let p = ((t * (0.35 + cur * 0.25) * dir + (i / innerParticles) * 3) % 1 + 1) % 1;
+        dummy.position.set(base.x, -H * 0.5 + p * H, base.z);
+        dummy.scale.setScalar(0.85 + cur * 0.4);
+        dummy.updateMatrix();
+        innerInst.setMatrixAt(i, dummy.matrix);
+      }
+      innerInst.instanceMatrix.needsUpdate = true;
+
+      for (let i = 0; i < outerParticles; i++) {
+        const curve = outerCurves[i % outerCurves.length];
+        let p;
+        if (dir > 0) p = ((t * (0.12 + cur * 0.1) + i / outerParticles) % 1 + 1) % 1;
+        else p = 1 - ((t * (0.12 + cur * 0.1) + i / outerParticles) % 1 + 1) % 1;
+        curve.getPoint(p, dummy.position);
+        dummy.scale.setScalar(0.95);
+        dummy.updateMatrix();
+        outerInst.setMatrixAt(i, dummy.matrix);
+      }
+      outerInst.instanceMatrix.needsUpdate = true;
+
+      if (dir > 0) {
+        topArrow.setColor(_c.setHex(0xef4444));
+        botArrow.setColor(_c.setHex(0x3b82f6));
+      } else {
+        topArrow.setColor(_c.setHex(0x3b82f6));
+        botArrow.setColor(_c.setHex(0xef4444));
+      }
+      coil.material.emissiveIntensity = 0.25 + Math.abs(Math.sin(t * 2)) * 0.35 * cur;
+    }
+  };
+}
+
+/* ============ 场景 3：安培力 ============ */
+function buildForce() {
+  const g = new THREE.Group();
+  const MAG_W = 5, MAG_D = 3, MAG_H = 0.5, GAP = 4.5;
+  const WIRE_LEN = 5;
+
+  const nPole = new THREE.Mesh(new THREE.BoxGeometry(MAG_W, MAG_H, MAG_D),
+    new THREE.MeshStandardMaterial({ color: 0xef4444, metalness: 0.4, roughness: 0.45, emissive: 0x7f1d1d, emissiveIntensity: 0.35 }));
+  nPole.position.set(0, GAP / 2 + MAG_H / 2, 0);
+  g.add(nPole);
+  const sPole = new THREE.Mesh(new THREE.BoxGeometry(MAG_W, MAG_H, MAG_D),
+    new THREE.MeshStandardMaterial({ color: 0x3b82f6, metalness: 0.4, roughness: 0.45, emissive: 0x1e3a8a, emissiveIntensity: 0.35 }));
+  sPole.position.set(0, -GAP / 2 - MAG_H / 2, 0);
+  g.add(sPole);
+
+  const nDot = new THREE.Mesh(new THREE.SphereGeometry(0.2, 16, 16), new THREE.MeshBasicMaterial({ color: 0xffaaaa }));
+  nDot.position.set(0, GAP / 2 + MAG_H + 0.4, 0); g.add(nDot);
+  const sDot = new THREE.Mesh(new THREE.SphereGeometry(0.2, 16, 16), new THREE.MeshBasicMaterial({ color: 0x93c5fd }));
+  sDot.position.set(0, -GAP / 2 - MAG_H - 0.4, 0); g.add(sDot);
+
+  const fieldLines = [];
+  const FL_COUNT = MOBILE ? 10 : 15;
+  for (let i = 0; i < FL_COUNT; i++) {
+    const x = (Math.random() - 0.5) * (MAG_W - 0.6);
+    const z = (Math.random() - 0.5) * (MAG_D - 0.6);
+    const lineGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(x, GAP / 2, z), new THREE.Vector3(x, -GAP / 2, z)]);
+    g.add(new THREE.Line(lineGeo, new THREE.LineBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.4 })));
+    fieldLines.push({ x, z });
+  }
+  const fieldParticles = MOBILE ? 40 : 60;
+  const fieldInst = makeInstanced(new THREE.SphereGeometry(0.08, 6, 6), new THREE.MeshBasicMaterial({ color: 0x7dd3fc }), fieldParticles);
+  g.add(fieldInst);
+
+  const wire = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, WIRE_LEN, 24),
+    new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 1, roughness: 0.25, emissive: 0x475569, emissiveIntensity: 0.5 }));
+  wire.rotation.x = Math.PI / 2;
+  g.add(wire);
+
+  const capBack = new THREE.Mesh(new THREE.SphereGeometry(0.22, 16, 16),
+    new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.7, roughness: 0.3, emissive: 0x475569, emissiveIntensity: 0.3 }));
+  capBack.position.set(0, 0, -WIRE_LEN / 2);
+  g.add(capBack);
+  const capFront = new THREE.Mesh(new THREE.SphereGeometry(0.22, 16, 16),
+    new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.7, roughness: 0.3, emissive: 0x475569, emissiveIntensity: 0.3 }));
+  capFront.position.set(0, 0, WIRE_LEN / 2);
+  g.add(capFront);
+
+  const bigArrows = [];
+  const bigArrowCount = 3;
+  for (let i = 0; i < bigArrowCount; i++) {
+    const arrow = new THREE.ArrowHelper(new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 0.9, 0), 1.8, 0xef4444, 0.65, 0.42);
+    g.add(arrow);
+    bigArrows.push(arrow);
+  }
+
+  /* 后端 ⊙/⊗ 符号 */
+  const symbolBack = new THREE.Group();
+  symbolBack.position.set(0, 0, -WIRE_LEN / 2 - 0.5);
+  const ringBack = new THREE.Mesh(new THREE.TorusGeometry(0.38, 0.07, 10, 28), new THREE.MeshBasicMaterial({ color: 0xef4444 }));
+  ringBack.rotation.y = Math.PI / 2;
+  symbolBack.add(ringBack);
+  const dotBack = new THREE.Mesh(new THREE.SphereGeometry(0.15, 14, 14), new THREE.MeshBasicMaterial({ color: 0xef4444 }));
+  dotBack.position.set(0, 0, 0.02);
+  symbolBack.add(dotBack);
+  const crossBack1 = new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, -0.28, 0.02), new THREE.Vector3(0, 0.28, 0.02)]),
+    new THREE.LineBasicMaterial({ color: 0xef4444 }));
+  crossBack1.rotation.y = Math.PI / 2;
+  crossBack1.rotateZ(Math.PI / 4);
+  symbolBack.add(crossBack1);
+  const crossBack2 = new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, -0.28, 0.02), new THREE.Vector3(0, 0.28, 0.02)]),
+    new THREE.LineBasicMaterial({ color: 0xef4444 }));
+  crossBack2.rotation.y = Math.PI / 2;
+  crossBack2.rotateZ(-Math.PI / 4);
+  symbolBack.add(crossBack2);
+  g.add(symbolBack);
+
+  /* 前端 ⊙/⊗ 符号 */
+  const symbolFront = new THREE.Group();
+  symbolFront.position.set(0, 0, WIRE_LEN / 2 + 0.5);
+  const ringFront = new THREE.Mesh(new THREE.TorusGeometry(0.38, 0.07, 10, 28), new THREE.MeshBasicMaterial({ color: 0xef4444 }));
+  ringFront.rotation.y = Math.PI / 2;
+  symbolFront.add(ringFront);
+  const dotFront = new THREE.Mesh(new THREE.SphereGeometry(0.15, 14, 14), new THREE.MeshBasicMaterial({ color: 0xef4444 }));
+  dotFront.position.set(0, 0, -0.02);
+  symbolFront.add(dotFront);
+  const crossFront1 = new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, -0.28, -0.02), new THREE.Vector3(0, 0.28, -0.02)]),
+    new THREE.LineBasicMaterial({ color: 0xef4444 }));
+  crossFront1.rotation.y = Math.PI / 2;
+  crossFront1.rotateZ(Math.PI / 4);
+  symbolFront.add(crossFront1);
+  const crossFront2 = new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, -0.28, -0.02), new THREE.Vector3(0, 0.28, -0.02)]),
+    new THREE.LineBasicMaterial({ color: 0xef4444 }));
+  crossFront2.rotation.y = Math.PI / 2;
+  crossFront2.rotateZ(-Math.PI / 4);
+  symbolFront.add(crossFront2);
+  g.add(symbolFront);
+
+  const flowCount = MOBILE ? 10 : 15;
+  const flowInst = makeInstanced(new THREE.SphereGeometry(0.14, 10, 10), new THREE.MeshBasicMaterial({ color: 0xf87171 }), flowCount);
+  g.add(flowInst);
+
+  const currentArrow = new THREE.ArrowHelper(new THREE.Vector3(0, 0, 1), new THREE.Vector3(0.9, 1.8, 0), 2.6, 0xef4444, 0.85, 0.5);
+  g.add(currentArrow);
+
+  const forceArrow = new THREE.ArrowHelper(new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0, 0), 2, 0xfacc15, 0.6, 0.4);
+  g.add(forceArrow);
+
+  const _v = new THREE.Vector3();
+  const _c = new THREE.Color();
+  return {
+    group: g, camPos: new THREE.Vector3(6, 5, 12),
+    update(dt, t) {
+      const cur = state.current, B = state.field, dir = state.direction;
+
+      for (let i = 0; i < fieldParticles; i++) {
+        const fl = fieldLines[i % FL_COUNT];
+        let p = ((t * (0.5 + B * 0.4) + i / fieldParticles * 4) % 1 + 1) % 1;
+        dummy.position.set(fl.x, GAP / 2 - p * GAP, fl.z);
+        dummy.scale.setScalar(0.95 + B * 0.3);
+        dummy.updateMatrix();
+        fieldInst.setMatrixAt(i, dummy.matrix);
+      }
+      fieldInst.instanceMatrix.needsUpdate = true;
+
+      const arrowColor = dir > 0 ? 0xef4444 : 0xf97316;
+      const arrowColorC = _c.setHex(arrowColor);
+      for (let i = 0; i < bigArrowCount; i++) {
+        const arrow = bigArrows[i];
+        const zPos = -1.5 + i * 1.5;
+        arrow.position.set(0, 0.9, zPos);
+        arrow.setDirection(_v.set(0, 0, dir));
+        arrow.setColor(arrowColorC);
+      }
+
+      if (dir > 0) {
+        dotFront.visible = true;
+        crossFront1.visible = false;
+        crossFront2.visible = false;
+        dotBack.visible = false;
+        crossBack1.visible = true;
+        crossBack2.visible = true;
+        capFront.material.color.setHex(0xef4444);
+        capFront.material.emissive.setHex(0x7f1d1d);
+        capFront.material.emissiveIntensity = 0.8;
+        capBack.material.color.setHex(0x94a3b8);
+        capBack.material.emissive.setHex(0x475569);
+        capBack.material.emissiveIntensity = 0.3;
+      } else {
+        dotFront.visible = false;
+        crossFront1.visible = true;
+        crossFront2.visible = true;
+        dotBack.visible = true;
+        crossBack1.visible = false;
+        crossBack2.visible = false;
+        capBack.material.color.setHex(0xf97316);
+        capBack.material.emissive.setHex(0x7c2d12);
+        capBack.material.emissiveIntensity = 0.8;
+        capFront.material.color.setHex(0x94a3b8);
+        capFront.material.emissive.setHex(0x475569);
+        capFront.material.emissiveIntensity = 0.3;
+      }
+      ringFront.material.color.setHex(arrowColor);
+      ringBack.material.color.setHex(arrowColor);
+      dotFront.material.color.setHex(arrowColor);
+      dotBack.material.color.setHex(arrowColor);
+      crossFront1.material.color.setHex(arrowColor);
+      crossFront2.material.color.setHex(arrowColor);
+      crossBack1.material.color.setHex(arrowColor);
+      crossBack2.material.color.setHex(arrowColor);
+
+      const flowSpeed = 3.0 + cur * 2.5;
+      for (let i = 0; i < flowCount; i++) {
+        let p = ((t * flowSpeed * dir + i / flowCount) % 1 + 1) % 1;
+        dummy.position.set(0, 0, -WIRE_LEN / 2 + p * WIRE_LEN);
+        dummy.scale.setScalar(0.85 + cur * 0.4);
+        dummy.updateMatrix();
+        flowInst.setMatrixAt(i, dummy.matrix);
+      }
+      flowInst.instanceMatrix.needsUpdate = true;
+
+      if (dir > 0) {
+        currentArrow.position.set(0.9, 1.8, -WIRE_LEN / 2 - 0.5);
+        currentArrow.setDirection(_v.set(0, 0, 1));
+      } else {
+        currentArrow.position.set(0.9, 1.8, WIRE_LEN / 2 + 0.5);
+        currentArrow.setDirection(_v.set(0, 0, -1));
+      }
+      currentArrow.setColor(arrowColorC);
+
+      const F = B * cur;
+      const forceLen = 1.4 + F * 0.9;
+      forceArrow.setDirection(_v.set(dir, 0, 0));
+      forceArrow.position.set(0, 0, 0);
+      forceArrow.setLength(forceLen, 0.6, 0.4);
+
+      wire.material.emissiveIntensity = 0.3 + Math.abs(Math.sin(t * 3)) * 0.4 * cur;
+    }
+  };
+}
+
+/* ============================================================
+   场景 4：电磁感应（恢复为最初版本：磁铁在线圈中往复运动）
+============================================================ */
+function buildInduction() {
+  const g = new THREE.Group();
+  const R = 1.4, H = 5, TURNS = 8;
+  const helixCurve = new HelixCurve(R, H, TURNS);
+  const coil = new THREE.Mesh(
+    new THREE.TubeGeometry(helixCurve, MOBILE ? 320 : 450, 0.07, 10, false),
+    new THREE.MeshStandardMaterial({ color: 0xf59e0b, metalness: 0.95, roughness: 0.25, emissive: 0x92400e, emissiveIntensity: 0.3 })
+  );
+  g.add(coil);
+
+  const magnetGroup = new THREE.Group();
+  const magLen = 3.6, magR = 0.42;
+  const magN = new THREE.Mesh(
+    new THREE.CylinderGeometry(magR, magR, magLen / 2, 24),
+    new THREE.MeshStandardMaterial({ color: 0xef4444, metalness: 0.6, roughness: 0.35, emissive: 0x7f1d1d, emissiveIntensity: 0.4 })
+  );
+  magN.position.y = magLen / 4;
+  magnetGroup.add(magN);
+  const magS = new THREE.Mesh(
+    new THREE.CylinderGeometry(magR, magR, magLen / 2, 24),
+    new THREE.MeshStandardMaterial({ color: 0x3b82f6, metalness: 0.6, roughness: 0.35, emissive: 0x1e3a8a, emissiveIntensity: 0.4 })
+  );
+  magS.position.y = -magLen / 4;
+  magnetGroup.add(magS);
+  const nTip = new THREE.Mesh(new THREE.SphereGeometry(0.14, 12, 12), new THREE.MeshBasicMaterial({ color: 0xffaaaa }));
+  nTip.position.y = magLen / 2 + 0.18;
+  magnetGroup.add(nTip);
+  g.add(magnetGroup);
+
+  const coilParticles = MOBILE ? 55 : 80;
+  const coilInst = makeInstanced(
+    new THREE.SphereGeometry(0.075, 8, 8),
+    new THREE.MeshBasicMaterial({ color: 0xfbbf24 }),
+    coilParticles
+  );
+  g.add(coilInst);
+
+  /* 电流表 */
+  const meterPos = new THREE.Vector3(R * 2.5, 0, 0);
+  const meterBase = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.9, 0.9, 0.2, 32),
+    new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.6, roughness: 0.4 })
+  );
+  meterBase.rotation.z = Math.PI / 2;
+  meterBase.position.copy(meterPos);
+  g.add(meterBase);
+
+  const meterFace = new THREE.Mesh(
+    new THREE.CircleGeometry(0.75, 32),
+    new THREE.MeshBasicMaterial({ color: 0x0f172a })
+  );
+  meterFace.position.copy(meterPos);
+  meterFace.position.x += 0.11;
+  meterFace.rotation.y = Math.PI / 2;
+  g.add(meterFace);
+
+  const needlePivot = new THREE.Group();
+  needlePivot.position.copy(meterPos);
+  needlePivot.position.x += 0.14;
+  const needle = new THREE.Mesh(
+    new THREE.BoxGeometry(0.02, 0.65, 0.02),
+    new THREE.MeshBasicMaterial({ color: 0xfacc15 })
+  );
+  needle.position.y = 0.3;
+  needlePivot.add(needle);
+  g.add(needlePivot);
+
+  const trackGeo = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(0, -H * 0.95, 0), new THREE.Vector3(0, H * 0.95, 0)
+  ]);
+  const trackLine = new THREE.Line(trackGeo, new THREE.LineDashedMaterial({
+    color: 0x334155, dashSize: 0.18, gapSize: 0.14, transparent: true, opacity: 0.6
+  }));
+  trackLine.computeLineDistances();
+  g.add(trackLine);
+
+  return {
+    group: g,
+    camPos: new THREE.Vector3(9, 5, 9),
+    update(dt, t) {
+      const speed = state.speed;
+      const period = 4 / speed;
+      const phase = (t * 2 * Math.PI) / period;
+      const magY = Math.sin(phase) * (H * 0.6);
+      magnetGroup.position.set(0, magY, 0);
+
+      const v = Math.cos(phase) * (H * 0.6) * (2 * Math.PI) / period;
+      const fluxGrad = Math.exp(-Math.pow(magY / (H * 0.5), 2));
+      const emf = Math.abs(v) * fluxGrad * state.field;
+      const currentDir = v > 0 ? 1 : -1;
+      const speedScale = Math.min(1, Math.abs(v) * 0.8);
+
+      for (let i = 0; i < coilParticles; i++) {
+        let p = ((t * (0.02 + speedScale * 0.15) * currentDir + i / coilParticles) % 1 + 1) % 1;
+        helixCurve.getPoint(p, dummy.position);
+        dummy.scale.setScalar(0.65 + speedScale * 0.6);
+        dummy.updateMatrix();
+        coilInst.setMatrixAt(i, dummy.matrix);
+      }
+      coilInst.instanceMatrix.needsUpdate = true;
+
+      coil.material.emissiveIntensity = 0.2 + speedScale * 0.8;
+
+      const needleAngle = -Math.max(-1.4, Math.min(1.4, emf * 0.9 * currentDir));
+      needlePivot.rotation.z += (needleAngle - needlePivot.rotation.z) * Math.min(1, dt * 10);
+      needle.material.color.setHex(Math.abs(needleAngle) > 0.3 ? 0xf87171 : 0xfacc15);
+
+      const glow = 0.3 + speedScale * 0.6;
+      magN.material.emissiveIntensity = glow;
+      magS.material.emissiveIntensity = glow;
+
+      window._emf = emf;
+      window._emfDir = currentDir;
+    }
+  };
+}
+
+/* ============ 关卡数据 ============ */
+const LEVELS = [
+  { id: 0, name: '直导线磁场', mode: 'field', icon: '🧲', tasks: [
+    { title: '让磁感线呈<em>逆时针</em>旋转，电流 <em>2.0 A</em>', check: (s) => s.direction === 1 && Math.abs(s.current - 2.0) < 0.06, progress: (s) => (s.direction === 1 ? 0.5 : 0) + Math.max(0, 1 - Math.abs(s.current - 2.0) / 2.8) * 0.5, tip: '右手螺旋定则：拇指指电流，四指环绕即磁感线方向。' },
+    { title: '让磁感线呈<em>顺时针</em>旋转，电流 <em>0.5 A</em>', check: (s) => s.direction === -1 && Math.abs(s.current - 0.5) < 0.06, progress: (s) => (s.direction === -1 ? 0.5 : 0) + Math.max(0, 1 - Math.abs(s.current - 0.5) / 2.8) * 0.5, tip: '切换电流方向，让电流向下流动。' },
+    { title: '输出<em>最强磁场</em>（电流 3.0 A）', check: (s) => Math.abs(s.current - 3.0) < 0.06, progress: (s) => Math.max(0, 1 - Math.abs(s.current - 3.0) / 2.8), tip: '电流越大，磁感线越密。' }
+  ]},
+  { id: 1, name: '通电螺线管', mode: 'solenoid', icon: '🌀', tasks: [
+    { title: '让螺线管<em>上端为 N 极</em>', check: (s) => s.direction === 1, progress: (s) => s.direction === 1 ? 1 : 0, tip: '用右手螺旋定则判断磁极。' },
+    { title: '让螺线管<em>下端为 N 极</em>', check: (s) => s.direction === -1, progress: (s) => s.direction === -1 ? 1 : 0, tip: '反转电流方向即可反转磁极。' },
+    { title: '螺线管磁场<em>最强</em>（3.0 A）且上端为 N 极', check: (s) => s.direction === 1 && Math.abs(s.current - 3.0) < 0.06, progress: (s) => (s.direction === 1 ? 0.5 : 0) + Math.max(0, 1 - Math.abs(s.current - 3.0) / 2.8) * 0.5, tip: '把电流调到最大。' }
+  ]},
+  { id: 2, name: '安培力实验', mode: 'force', icon: '⚙️', tasks: [
+    { title: '安培力 <em>F = 2.0 N</em> 且方向<em>向右</em>（电流向外）', check: (s) => s.direction === 1 && Math.abs(s.field * s.current - 2.0) < 0.13, progress: (s) => (s.direction === 1 ? 0.5 : 0) + Math.max(0, 1 - Math.abs(s.field * s.current - 2.0) / 6) * 0.5, tip: '左手定则：磁感线穿手心，四指指电流，拇指指受力。' },
+    { title: '安培力 <em>F = 4.5 N</em> 且方向<em>向左</em>（电流向内）', check: (s) => s.direction === -1 && Math.abs(s.field * s.current - 4.5) < 0.15, progress: (s) => (s.direction === -1 ? 0.5 : 0) + Math.max(0, 1 - Math.abs(s.field * s.current - 4.5) / 6) * 0.5, tip: '电流向内，力向左。' },
+    { title: '安培力达到<em>最大值</em>（F ≥ 8.0 N）', check: (s) => s.field * s.current >= 8.0, progress: (s) => Math.min(1, (s.field * s.current) / 8.0), tip: '把电流和磁场都调到最大。' }
+  ]},
+  { id: 3, name: '电磁感应', mode: 'induction', icon: '⚡', tasks: [
+    { title: '让感应电动势 <em>ε ≥ 1.5 V</em>', check: () => (window._emf || 0) >= 1.5, progress: () => Math.min(1, (window._emf || 0) / 1.5), tip: '增大磁铁运动速度，观察电流表指针摆动。' },
+    { title: 'ε ≥ 2.5 V 且磁铁<em>向下运动</em>', check: () => (window._emf || 0) >= 2.5 && (window._emfDir || 0) === 1, progress: () => Math.min(1, (window._emf || 0) / 2.5) * 0.7 + ((window._emfDir || 0) === 1 ? 0.3 : 0), tip: '速度调到最大，等待磁铁向下运动。' },
+    { title: 'ε ≥ 2.5 V 且磁铁<em>向上运动</em>', check: () => (window._emf || 0) >= 2.5 && (window._emfDir || 0) === -1, progress: () => Math.min(1, (window._emf || 0) / 2.5) * 0.7 + ((window._emfDir || 0) === -1 ? 0.3 : 0), tip: '速度调到最大，等待磁铁向上运动。' }
+  ]}
+];
+
+/* ============ 游戏管理 ============ */
+const Game = {
+  score: 0, achCount: 0, currentLevel: 0, currentTask: 0,
+  unlockedLevels: 1, levelStars: [0, 0, 0, 0], taskStartTime: 0,
+  achievements: {
+    firstTask: { name: '初次通电', desc: '完成第一个任务', done: false },
+    threeStar: { name: '完美主义', desc: '单关获得3星', done: false },
+    speedster: { name: '神速解题', desc: '15秒内完成任务', done: false },
+    maxCurrent: { name: '电流狂人', desc: '把电流调到3.0A', done: false },
+    allLevels: { name: '物理大师', desc: '通关所有关卡', done: false }
+  }
+};
+
+function renderLevelMap() {
+  const map = document.getElementById('levelMap');
+  map.innerHTML = '';
+  LEVELS.forEach((lv, i) => {
+    const locked = i >= Game.unlockedLevels;
+    const stars = Game.levelStars[i];
+    const node = document.createElement('div');
+    node.className = 'level-node' + (i === Game.currentLevel ? ' active' : '') + (locked ? ' locked' : '');
+    node.innerHTML = `<div class="num">LEVEL ${i + 1}</div><div class="name">${lv.icon} ${lv.name}</div><div class="stars">${[1,2,3].map(n => `<span class="${n <= stars ? 'on' : 'off'}">★</span>`).join('')}</div>${locked ? '<div class="lock-icon">🔒</div>' : ''}`;
+    if (!locked) node.addEventListener('click', () => loadLevel(i));
+    map.appendChild(node);
+  });
+}
+function loadLevel(i) { Game.currentLevel = i; Game.currentTask = 0; renderLevelMap(); loadTask(0); }
+function loadTask(i) {
+  Game.currentTask = i; Game.taskStartTime = performance.now();
+  const level = LEVELS[Game.currentLevel], task = level.tasks[i];
+  document.getElementById('taskTitle').innerHTML = task.title;
+  document.getElementById('taskHint').textContent = task.tip;
+  document.getElementById('tip').innerHTML = task.tip;
+  document.getElementById('btnSubmit').disabled = false;
+  setMode(level.mode); resetParams(); updateTaskProgress();
+}
+function resetParams() {
+  state.current = 1; state.field = 1; state.speed = 1; state.direction = 1;
+  rngI.value = 1; rngB.value = 1; rngV.value = 1;
+  valI.textContent = '1.0 A'; valB.textContent = '1.0 T'; valV.textContent = '1.0 m/s';
+  fillSlider(rngI); fillSlider(rngB); fillSlider(rngV);
+  updateReadout();
+}
+function updateTaskProgress() {
+  const task = LEVELS[Game.currentLevel].tasks[Game.currentTask];
+  const p = Math.max(0, Math.min(1, task.progress(state)));
+  document.getElementById('taskFill').style.width = (p * 100) + '%';
+  document.getElementById('taskProgressText').textContent = '进度 ' + Math.round(p * 100) + '%';
+}
+function submitTask() {
+  const task = LEVELS[Game.currentLevel].tasks[Game.currentTask];
+  if (task.check(state)) {
+    const elapsed = (performance.now() - Game.taskStartTime) / 1000;
+    let stars = 1;
+    if (elapsed < 25) stars = 2;
+    if (elapsed < 12) stars = 3;
+    let score = stars * 100;
+    if (elapsed < 12) score += 50;
+    Game.score += score;
+    Game.levelStars[Game.currentLevel] = Math.max(Game.levelStars[Game.currentLevel], stars);
+    checkAchievements(elapsed, stars);
+    showResult(stars, score, elapsed);
+    updateHUD(); renderLevelMap();
+  } else {
+    const panel = document.querySelector('.task-panel');
+    panel.style.animation = 'shake 0.4s';
+    setTimeout(() => panel.style.animation = '', 400);
+    document.getElementById('tip').innerHTML = '❌ 参数不满足，再想想？<em>' + task.tip + '</em>';
+  }
+}
+function checkAchievements(elapsed, stars) {
+  const A = Game.achievements;
+  const unlock = (key) => { if (!A[key].done) { A[key].done = true; Game.achCount++; showAchievement(A[key].name, A[key].desc); updateHUD(); } };
+  if (!A.firstTask.done) unlock('firstTask');
+  if (stars === 3) unlock('threeStar');
+  if (elapsed < 15) unlock('speedster');
+  if (Math.abs(state.current - 3.0) < 0.05) unlock('maxCurrent');
+  if (Game.levelStars.every(s => s > 0)) unlock('allLevels');
+}
+function showAchievement(name, desc) {
+  const el = document.getElementById('achievement');
+  document.getElementById('achText').textContent = `成就解锁：${name} · ${desc}`;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 3200);
+}
+function showResult(stars, score, elapsed) {
+  const overlay = document.getElementById('modalOverlay');
+  document.getElementById('resultIcon').textContent = stars === 3 ? '🏆' : stars === 2 ? '🎉' : '✅';
+  document.getElementById('resultTitle').textContent = stars === 3 ? '完美通关！' : '任务完成！';
+  document.getElementById('resultSubtitle').textContent = stars === 3 ? '你对电磁学了如指掌！' : stars === 2 ? '做得漂亮！' : '不错，还能更快哦！';
+  const starsEl = document.getElementById('resultStars');
+  starsEl.innerHTML = [1,2,3].map(n => `<span class="${n <= stars ? 'on' : 'off'}" style="animation-delay:${n*0.15}s">★</span>`).join('');
+  document.getElementById('resultScore').textContent = '+' + score;
+  document.getElementById('resultTotal').textContent = Game.score;
+  document.getElementById('resultTime').textContent = elapsed.toFixed(1) + 's';
+  const lt = Game.currentTask >= LEVELS[Game.currentLevel].tasks.length - 1;
+  const ll = Game.currentLevel >= LEVELS.length - 1;
+  document.getElementById('btnNext').textContent = (lt && ll) ? '🎊 通关全部关卡' : lt ? '进入下一关 →' : '下一题 →';
+  overlay.classList.add('show');
+}
+function nextStep() {
+  document.getElementById('modalOverlay').classList.remove('show');
+  const level = LEVELS[Game.currentLevel];
+  const lt = Game.currentTask >= level.tasks.length - 1;
+  const ll = Game.currentLevel >= LEVELS.length - 1;
+  if (lt && ll) { setTimeout(() => { document.getElementById('tip').innerHTML = `🎊 <em>恭喜通关《电磁征途》所有关卡！</em> 总分 ${Game.score} 分，成就 ${Game.achCount}/5。`; }, 400); return; }
+  if (lt) { Game.unlockedLevels = Math.max(Game.unlockedLevels, Game.currentLevel + 2); setTimeout(() => loadLevel(Game.currentLevel + 1), 300); }
+  else setTimeout(() => loadTask(Game.currentTask + 1), 300);
+}
+function updateHUD() {
+  document.getElementById('hudScore').textContent = Game.score;
+  document.getElementById('hudAch').textContent = Game.achCount + '/5';
+}
+
+/* ============ UI 事件 ============ */
+const rngI = document.getElementById('rngI');
+const rngB = document.getElementById('rngB');
+const rngV = document.getElementById('rngV');
+const valI = document.getElementById('valI');
+const valB = document.getElementById('valB');
+const valV = document.getElementById('valV');
+const rowCurrent = document.getElementById('rowCurrent');
+const rowField = document.getElementById('rowField');
+const rowSpeed = document.getElementById('rowSpeed');
+
+function fillSlider(el) {
+  const p = ((el.value - el.min) / (el.max - el.min)) * 100;
+  el.style.setProperty('--fill', p + '%');
+}
+rngI.addEventListener('input', () => { state.current = parseFloat(rngI.value); valI.textContent = state.current.toFixed(1) + ' A'; fillSlider(rngI); updateReadout(); updateTaskProgress(); });
+rngB.addEventListener('input', () => { state.field = parseFloat(rngB.value); valB.textContent = state.field.toFixed(1) + ' T'; fillSlider(rngB); updateReadout(); updateTaskProgress(); });
+rngV.addEventListener('input', () => { state.speed = parseFloat(rngV.value); valV.textContent = state.speed.toFixed(1) + ' m/s'; fillSlider(rngV); updateReadout(); updateTaskProgress(); });
+fillSlider(rngI); fillSlider(rngB); fillSlider(rngV);
+
+document.getElementById('btnDir').addEventListener('click', () => { state.direction *= -1; updateReadout(); updateTaskProgress(); });
+document.getElementById('btnRotate').addEventListener('click', function() { state.autoRotate = !state.autoRotate; controls.autoRotate = state.autoRotate; this.classList.toggle('active', state.autoRotate); });
+document.getElementById('btnSubmit').addEventListener('click', submitTask);
+document.getElementById('btnNext').addEventListener('click', nextStep);
+
+/* ============ 数据面板 ============ */
+const outDir = document.getElementById('outDir');
+const outField = document.getElementById('outField');
+const outF = document.getElementById('outF');
+const outEMF = document.getElementById('outEMF');
+
+function updateReadout() {
+  const dir = state.direction;
+  if (state.mode === 'force') outDir.textContent = dir > 0 ? '⊙ 向外' : '⊗ 向内';
+  else outDir.textContent = dir > 0 ? '↑ 向上' : '↓ 向下';
+
+  if (state.mode === 'solenoid') outField.textContent = dir > 0 ? '上N下S' : '上S下N';
+  else if (state.mode === 'force') outField.textContent = '向下 ↓';
+  else outField.textContent = dir > 0 ? '逆时针 ↺' : '顺时针 ↻';
+
+  if (state.mode === 'force') {
+    const F = state.field * state.current;
+    outF.textContent = F.toFixed(2) + ' N ' + (dir > 0 ? '→ 向右' : '← 向左');
+  } else outF.textContent = '—';
+
+  if (state.mode === 'induction' && window._emf !== undefined) outEMF.textContent = window._emf.toFixed(2) + ' V (' + (window._emfDir > 0 ? '正向' : '反向') + ')';
+  else outEMF.textContent = '—';
+}
+
+/* ============ 场景切换 ============ */
+let currentScene = null;
+function setMode(mode) {
+  state.mode = mode;
+  if (currentScene) {
+    root.remove(currentScene.group);
+    currentScene.group.traverse(obj => {
+      if (obj.geometry) obj.geometry.dispose();
+      if (obj.material) { if (Array.isArray(obj.material)) obj.material.forEach(m => m.dispose()); else obj.material.dispose(); }
+    });
+    currentScene = null;
+  }
+  switch (mode) {
+    case 'field': currentScene = buildStraightWire(); break;
+    case 'solenoid': currentScene = buildSolenoid(); break;
+    case 'force': currentScene = buildForce(); break;
+    case 'induction': currentScene = buildInduction(); break;
+  }
+  root.add(currentScene.group);
+  camera.position.copy(currentScene.camPos);
+  controls.target.set(0, 0, 0);
+  controls.update();
+  rowCurrent.classList.toggle('hidden', mode === 'induction');
+  rowField.classList.toggle('hidden', mode !== 'force');
+  rowSpeed.classList.toggle('hidden', mode !== 'induction');
+}
+
+/* ============ 渲染循环 ============ */
+let lastTime = performance.now();
+let uiTimer = 0;
+let totalTime = 0;
+let isPaused = false;
+
+function animate(now) {
+  requestAnimationFrame(animate);
+  if (isPaused) return;
+  const dt = Math.min(0.05, (now - lastTime) / 1000);
+  lastTime = now;
+  state.time += dt; totalTime += dt;
+  if (currentScene) currentScene.update(dt, state.time);
+  rimBlue.position.x = -9 + Math.sin(state.time * 0.3) * 2;
+  rimBlue.position.z = -7 + Math.cos(state.time * 0.3) * 2;
+  controls.update();
+  renderer.render(scene, camera);
+
+  const mm = String(Math.floor(totalTime / 60)).padStart(2, '0');
+  const ss = String(Math.floor(totalTime % 60)).padStart(2, '0');
+  document.getElementById('hudTime').textContent = mm + ':' + ss;
+
+  uiTimer += dt;
+  if (uiTimer > 0.15) {
+    uiTimer = 0; updateReadout();
+    if (state.mode === 'induction') {
+      updateTaskProgress();
+      if (window._emf !== undefined) {
+        document.getElementById('tip').innerHTML = `感应电动势 ε = <em>${window._emf.toFixed(2)} V</em>，磁铁<em>${window._emfDir > 0 ? '向下' : '向上'}运动</em>。速度越大，感应电动势越大。`;
+      }
+    }
+  }
+}
+
+document.addEventListener('visibilitychange', () => { isPaused = document.hidden; if (!isPaused) lastTime = performance.now(); });
+window.addEventListener('resize', () => { camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); });
+window.addEventListener('orientationchange', () => setTimeout(() => { camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); }, 200));
+
+/* ============ 启动 ============ */
+loadLevel(0); updateHUD();
+requestAnimationFrame(animate);
+
+const style = document.createElement('style');
+style.textContent = `@keyframes shake { 0%,100% { transform: translateX(0); } 20% { transform: translateX(-8px); } 40% { transform: translateX(8px); } 60% { transform: translateX(-5px); } 80% { transform: translateX(5px); } }`;
+document.head.appendChild(style);
+
+let lastTouch = 0;
+document.addEventListener('touchend', e => { const now = Date.now(); if (now - lastTouch < 300) e.preventDefault(); lastTouch = now; }, { passive: false });
+</script>
+</body>
+</html>
